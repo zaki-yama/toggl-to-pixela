@@ -2,14 +2,23 @@ import { TimeEntry } from "./types";
 import fetch from "node-fetch";
 
 const TOGGL_URL = "https://api.track.toggl.com/api/v8/time_entries";
+const TOGGLE_PROJECT_ID = process.env.TOGGL_PROJECT_ID;
 
-const PIXELA_USERNAME = "zaki-yama";
-const PIXELA_USER_TOKEN = process.env.PIXELA_TOKEN;
+const PIXELA_USERNAME = process.env.PIXELA_USERNAME;
+const PIXELA_TOKEN = process.env.PIXELA_TOKEN;
+const PIXELA_GRAPH_ID = process.env.PIXELA_GRAPH_ID;
+
+const today = new Date();
+const year = today.getFullYear();
+const month = (today.getMonth() + 1).toString().padStart(2, "0");
+const day = (today.getDate() - 1).toString().padStart(2, "0");
+
+console.log(`target day: ${year}-${month}-${day}`);
 
 // eslint-disable-next-line node/no-unsupported-features/node-builtins
 const params = new URLSearchParams({
-  start_date: "2021-07-23T00:00:00+09:00",
-  end_date: "2021-07-25T00:00:00+09:00",
+  start_date: `${year}-${month}-${day}T00:00:00+09:00`,
+  end_date: `${year}-${month}-${day}T23:59:59+09:00`,
 });
 
 const basicAuth = Buffer.from(`${process.env.TOGGL_TOKEN}:api_token`).toString(
@@ -23,19 +32,28 @@ const response = await fetch(`${TOGGL_URL}?${params.toString()}`, {
   },
 });
 const timeEntries: TimeEntry[] = await response.json();
-console.log(timeEntries);
+// console.log(timeEntries);
 
-const graphId = "playground";
+const totalDurationInSec = timeEntries.reduce((acc, curr) => {
+  console.log(curr);
+  if (curr.pid !== Number(TOGGLE_PROJECT_ID)) {
+    return acc;
+  }
+  console.log(`add ${curr.duration / 60} minutes`);
+  return acc + curr.duration;
+}, 0);
+console.log(`total minutes: ${totalDurationInSec / 60}`);
+
 const pixel = await fetch(
-  `https://pixe.la/v1/users/${PIXELA_USERNAME}/graphs/${graphId}`,
+  `https://pixe.la/v1/users/${PIXELA_USERNAME}/graphs/${PIXELA_GRAPH_ID}`,
   {
     method: "POST",
     headers: {
-      "X-USER-TOKEN": `${PIXELA_USER_TOKEN}`,
+      "X-USER-TOKEN": `${PIXELA_TOKEN}`,
     },
     body: JSON.stringify({
-      date: "20210718",
-      quantity: "25",
+      date: `${year}${month}${day}`,
+      quantity: (totalDurationInSec / 60).toString(),
     }),
   }
 );
