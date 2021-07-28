@@ -27,37 +27,46 @@ const basicAuth = Buffer.from(`${process.env.TOGGL_TOKEN}:api_token`).toString(
   "base64"
 );
 
-const response = await fetch(`${TOGGL_URL}?${params.toString()}`, {
-  method: "GET",
-  headers: {
-    Authorization: `Basic ${basicAuth}`,
-  },
-});
-const timeEntries: TimeEntry[] = await response.json();
-// console.log(timeEntries);
-
-const totalDurationInSec = timeEntries.reduce((acc, curr) => {
-  debug(curr);
-  if (curr.pid !== Number(TOGGLE_PROJECT_ID)) {
-    return acc;
-  }
-  debug(`add ${curr.duration / 60} minutes`);
-  return acc + curr.duration;
-}, 0);
-debug(`total minutes: ${totalDurationInSec / 60}`);
-
-const pixel = await fetch(
-  `https://pixe.la/v1/users/${PIXELA_USERNAME}/graphs/${PIXELA_GRAPH_ID}`,
-  {
-    method: "POST",
+async function fetchTimeEntries(): Promise<TimeEntry[]> {
+  const response = await fetch(`${TOGGL_URL}?${params.toString()}`, {
+    method: "GET",
     headers: {
-      "X-USER-TOKEN": `${PIXELA_TOKEN}`,
+      Authorization: `Basic ${basicAuth}`,
     },
-    body: JSON.stringify({
-      date: `${year}${month}${day}`,
-      quantity: (totalDurationInSec / 60).toString(),
-    }),
-  }
-);
-debug(pixel.status);
-debug(await pixel.json());
+  });
+  return await response.json();
+}
+
+async function postPixel(duration: number): Promise<void> {
+  const pixel = await fetch(
+    `https://pixe.la/v1/users/${PIXELA_USERNAME}/graphs/${PIXELA_GRAPH_ID}`,
+    {
+      method: "POST",
+      headers: {
+        "X-USER-TOKEN": `${PIXELA_TOKEN}`,
+      },
+      body: JSON.stringify({
+        date: `${year}${month}${day}`,
+        quantity: duration.toString(),
+      }),
+    }
+  );
+  debug(pixel.status);
+  debug(await pixel.json());
+}
+
+(async () => {
+  const timeEntries = await fetchTimeEntries();
+
+  const totalDurationInSec = timeEntries.reduce((acc, curr) => {
+    debug(curr);
+    if (curr.pid !== Number(TOGGLE_PROJECT_ID)) {
+      return acc;
+    }
+    debug(`add ${curr.duration / 60} minutes`);
+    return acc + curr.duration;
+  }, 0);
+  debug(`total minutes: ${totalDurationInSec / 60}`);
+
+  await postPixel(totalDurationInSec / 60);
+})();
