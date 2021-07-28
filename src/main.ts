@@ -1,5 +1,7 @@
 import { TimeEntry } from "./types";
 import fetch from "node-fetch";
+import debugModule from "debug";
+const debug = debugModule("toggl-to-pixela");
 
 const TOGGL_URL = "https://api.track.toggl.com/api/v8/time_entries";
 const TOGGLE_PROJECT_ID = process.env.TOGGL_PROJECT_ID;
@@ -13,7 +15,7 @@ const year = today.getFullYear();
 const month = (today.getMonth() + 1).toString().padStart(2, "0");
 const day = (today.getDate() - 1).toString().padStart(2, "0");
 
-console.log(`target day: ${year}-${month}-${day}`);
+debug(`target day: ${year}-${month}-${day}`);
 
 // eslint-disable-next-line node/no-unsupported-features/node-builtins
 const params = new URLSearchParams({
@@ -35,14 +37,14 @@ const timeEntries: TimeEntry[] = await response.json();
 // console.log(timeEntries);
 
 const totalDurationInSec = timeEntries.reduce((acc, curr) => {
-  console.log(curr);
+  debug(curr);
   if (curr.pid !== Number(TOGGLE_PROJECT_ID)) {
     return acc;
   }
-  console.log(`add ${curr.duration / 60} minutes`);
+  debug(`add ${curr.duration / 60} minutes`);
   return acc + curr.duration;
 }, 0);
-console.log(`total minutes: ${totalDurationInSec / 60}`);
+debug(`total minutes: ${totalDurationInSec / 60}`);
 
 const pixel = await fetch(
   `https://pixe.la/v1/users/${PIXELA_USERNAME}/graphs/${PIXELA_GRAPH_ID}`,
@@ -57,5 +59,5 @@ const pixel = await fetch(
     }),
   }
 );
-console.log(pixel.status);
-console.log(await pixel.json());
+debug(pixel.status);
+debug(await pixel.json());
